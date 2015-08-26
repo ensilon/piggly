@@ -1,0 +1,328 @@
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+
+Main:
+{
+    my $appname = $ARGV[0];
+    $appname =~ s/[^a-zA-Z0-9_\-]//g if $appname;
+    
+    die "usage: $0 <application name>" unless $appname;
+    
+    print "\n";
+    print "Making '$appname' application directory\n";
+    
+    0 == system("mkdir $appname") || die "Failed to create $appname directory";
+    foreach my $sub (qw( lib public views )) {
+        0 == system("mkdir $appname/$sub") || die "Failed to create $appname/$sub directory";
+    }
+    foreach my $sub (qw( js css images downloads videos )) {
+        0 == system("mkdir $appname/public/$sub") || die "Failed to create $appname/public/$sub directory";
+    }
+    
+    print "Creating sample files\n";
+    
+    open (my $layout, ">", "$appname/views/layout.tt") || die "Could not open layout";
+    print $layout layout();
+    close $layout;
+    
+    open (my $view, ">", "$appname/views/main.tt") || die "Could not open view";
+    print $view view();
+    close $view;
+    
+    open (my $err, ">", "$appname/views/error.tt") || die "Could not open err";
+    print $err err();
+    close $err;
+    
+    open (my $css, ">", "$appname/public/css/base.css") || die "Could not open css";
+    print $css css();
+    close $css;
+    
+    open (my $js, ">", "$appname/public/js/base.js") || die "Could not open js";
+    print $js js();
+    close $js;    
+
+    open (my $exe, ">", "$appname/public/app.psgi") || die "Could not open exe";
+    print $exe exe($appname);
+    close $exe;
+    
+    print "Done. To start your application, run:\n\n   starman $appname/public/app.psgi\n\n";
+}
+
+
+# ==========================================================================================
+sub exe {
+    my $appname = shift;
+    my $data = << "EOPIGGLYEXE;";
+#!/usr/bin/perl
+use strict;
+use warnings;
+use piggly;
+Main:
+{
+    my \$pgy = piggly->new({ uri_base => "/$appname", templates => "../views" });
+    \$pgy->run_psgi(
+        sub {
+            my (\$req, \$route, \$form) = \@_;
+            return \$req->template("main");
+        },
+        sub {
+            my (\$req, \$route, \$form, \$error) = \@_;
+            return \$req->template("error", { error => \$error });
+        },
+    );                    
+}
+EOPIGGLYEXE;
+return $data;
+}
+# ==========================================================================================
+sub css {
+    my $data = << 'EOPIGGLYCSS;';
+
+    /* ___ PSA ________________________ */
+      
+    #piggly-psa {
+        position: fixed;
+        bottom: 0; left: 0; right: 0;
+        background-color: #000;
+        opacity: 0.8;
+        display:none;
+        height: 100px;
+    }
+    #piggly-psa-message {
+        position: fixed;
+        bottom: 0; left: 0; right: 0;
+        display:none;
+        height: 100px;
+    }
+    #piggly-psa-message .container {
+        position: relative;
+    }
+    #piggly-psa-message .text {
+        padding: 10px 10px;
+        text-align: center;
+        color: white;
+        font-size: 1.2em;
+    }
+    #piggly-psa-message .dismiss {
+        padding: 10px;
+        position: absolute;
+        right: 20px;
+        top: 10px;
+        bottom: 2px;
+        width: 60px;
+        color: #bbb;
+        font-size: 50px;
+        line-height: 0.75em;
+    }
+    #piggly-psa-message dismiss:hover {
+        cursor: pointer;
+        color: #eee;
+    }
+
+
+EOPIGGLYCSS;
+return $data;
+}
+
+# ==========================================================================================
+sub js {
+my $data .= << 'EOPIGGLYJS;';
+    
+   function piggly_psa(msg) {
+       $("#piggly-psa-message .text").html(msg);
+       $("#piggly-psa").fadeIn();
+       $("#piggly-psa-message").fadeIn();       
+   }
+   function piggly_psa_dismiss() {
+       $("#piggly-psa-message").fadeOut();
+       $("#piggly-psa").fadeOut();
+       $("#piggly-psa-message .text").html("");
+   }       
+       
+   $(document).ready(function() {
+       $("#piggly-psa-message .dismiss").click(function(event) {
+           event.preventDefault();
+           piggly_psa_dismiss();
+       });
+   });                                    
+    
+   function piggly(url, object, cb)      { __piggly_run("post", url, object, cb);  };
+   function piggly_get(url, object, cb)  { __piggly_run("get",  url, null,   cb);  };
+   function piggly_post(url, object, cb) { __piggly_run("post", url, object, cb);  };
+   function piggly_put(url, object, cb)  { __piggly_run("put",  url, object, cb);  };
+
+   function piggly_form(form_selector, cb) {
+      var form = $(form_selector);
+      var meth = form.attr("method");
+      var url  = form.attr("action");
+      
+      if (!url)  return cb("Form action missing");
+      if (!meth) return cb("Form method missing");
+      
+      __piggly_run(meth, url, form.objectify(), cb);
+   };
+
+   function __piggly_run(method, url, object, cb) {
+       
+      var req  = {
+          contentType: "application/json",
+          dataType:    "json",
+          type:        method,
+          url:         url,
+          data:        (object) ? JSON.stringify(object) : ""
+      };
+       
+      if (URIBASE) {
+         var ubre = new RegExp("^" + URIBASE);
+         if (!url.match(ubre)) {
+            req.url = URIBASE + "/" + url;
+            req.url = req.url.replace(/\/+/g, "/");
+         }
+      }
+
+      $.ajax(req)
+         .done(function(data) {
+            console.log(method + " " + req.url + " ok");
+            if (data && ((data.hasOwnProperty("ok") && !data.ok) || (data.hasOwnProperty("error") && data.error) )) {
+               var err = (data.error)  ? data.error   :
+                         (data.mesage) ? data.message :
+                         (data.reason) ? data.reason  : "Request not ok";
+               cb(data.error, data);
+            } 
+            else {
+               cb(null, data);
+            }
+         })
+         .fail(function(oh, snap) {
+            console.log(method + " " + req.url + " failed");
+            cb(oh.status + " " + oh.statusText + " " + snap, null);
+         });
+   }
+
+
+var jqpiggly_post = function(url, cb) {
+    var tagName = $(this).prop("tagName");
+    var data = $(this).data() || {};
+    console.log("posting: ", tagName, data);
+    piggly_post(url, data, cb);
+};    
+jQuery.fn.piggly      = jqpiggly_post;
+jQuery.fn.piggly_post = jqpiggly_post;
+jQuery.fn.piggly_put  = function(url, cb) {
+    var tagName = $(this).prop("tagName");
+    piggly_put(url, $(this).data(), cb);
+};
+jQuery.fn.piggly_form = function(cb) {
+    var tagName = $(this).prop("tagName");
+    
+    if (tagName == "FORM") {
+        var id = $(this).attr("id");
+        if (!id) cb("your form must have an ID", null);
+        piggly_form("#" + id, cb);
+    }
+    else {
+        cb("Error: must be run in form context", null);
+    }
+};
+    
+jQuery.fn.objectify = function() {
+    var o = {};
+    var a = this.serializeArray();
+    $.each(a, function() {
+        if (o[this.name] !== undefined) {
+            if (!o[this.name].push) {
+                o[this.name] = [o[this.name]];
+            }
+            o[this.name].push(this.value || '');
+        } else {
+            o[this.name] = this.value || '';
+        }
+    });
+    return o;
+};
+
+EOPIGGLYJS;
+return $data;
+}
+
+
+
+
+
+
+# ==========================================================================================
+sub view {
+my $data = << 'EOVIEW;';
+[% WRAPPER layout.tt %]
+    
+    Hello!
+    
+[% END %]
+EOVIEW;
+}      
+
+# ==========================================================================================
+sub err {
+my $data = << 'EOERR;';
+[% WRAPPER layout.tt %]
+    
+    ERROR [% error %]
+    
+[% END %]
+EOERR;
+}      
+    
+# ==========================================================================================
+sub layout {
+my $data = << 'EOLAYOUT;';
+<!DOCTYPE html>
+<html lang="en">
+<head>
+   <meta charset="utf-8">
+   <meta http-equiv="X-UA-Compatible" content="IE=edge">
+   <meta name="viewport" content="width=device-width, initial-scale=1">
+
+   <link rel="stylesheet" href="[% uri_base %]/css/base.css" type="text/css">               
+   <script type="text/javascript" src="[% uri_base %]/js/base.js"></script>
+   
+   <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
+   <title>[% title %]</title>
+
+   <link rel="shortcut icon" type="image/x-icon" href="[% uri_base %]/images/favicon.ico" />
+
+   <script type="text/javascript">
+      var URIBASE="[% uri_base %]";
+   </script>
+
+   [% # add any more route-specific headers here %]       
+   [% head %]
+   [% # add any more application-specific headers here %]
+   [% TRY %]
+       [% INCLUDE head.tt %]
+   [% CATCH %]
+       <!--@!-->
+   [% END %]
+</head>
+<body>
+   <div id="piggly-psa"></div>
+   <div id="piggly-psa-message">
+      <div class="container">
+         <div class="text"></div>
+      </div><!--container-->
+      <div class="dismiss"><i class="fa fa-times"></i></div>
+   </div><!-- piggly-psa-message-->
+
+   [% content %]
+   [% foot %]
+   [% TRY %]
+      [% INCLUDE foot.tt %]
+   [% CATCH %]
+      <!--@!-->
+   [% END %]
+</body>
+</html>       
+EOLAYOUT;
+return $data;
+}
