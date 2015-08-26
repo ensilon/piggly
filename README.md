@@ -13,24 +13,24 @@ piggly - a straight forward PSGI web framework
     my $p = piggly->new({ option => "value", option2 => ... });
 
     # In FCGI mode
-    $p->run\_fcgi(
+    $p->run_fcgi(
         sub {
             # success
-            my ($req, $route, $form) = @\_;
+            my ($req, $route, $form) = @_;
         },
         sub {
-            my ($req, $route, $form, $error) = @\_;
+            my ($req, $route, $form, $error) = @_;
         },
     );
 
     # In PSGI mode (e.g. under 'starman')
-    $p->run\_fcgi(
+    $p->run_fcgi(
         sub {
             # success
-            my ($req, $route, $form) = @\_;
+            my ($req, $route, $form) = @_;
         },
         sub {
-            my ($req, $route, $form, $error) = @\_;
+            my ($req, $route, $form, $error) = @_;
         },
     );
 
@@ -40,7 +40,6 @@ piggly was written to be a web framework with virtually
 no learning curve.  As such, much of what this framework does is 
 clearly visible, and the rest is hopefully in the least
 obfuscated form possible.  
-  
 
 This framework doesn't attempt to save you keystrokes at all costs.  It has no
 DSL of it's own, and it doesn't have a "router" of any kind built in.  You write your 
@@ -59,52 +58,52 @@ or a mixture of both.   Options found in the JSON config file take precidence.
 
 ### Options:
 
-- \_\_uri\_base\_\_
+- **uri\_base**
 
-The base uri of the application. Can be "/" or "/some-path/to-your-app"
+    The base uri of the application. Can be "/" or "/some-path/to-your-app"
 
-- \_\_htaccess\_\_
+- **htaccess**
 
-Boolean.  If true, the application will attempt to write an .htaccess file 
-in $Bin/.htaccess that will map all URLs under $uri\_base to your script's 
-entrypoint.  Useful when running under FCGI.
+    Boolean.  If true, the application will attempt to write an .htaccess file 
+    in $Bin/.htaccess that will map all URLs under $uri\_base to your script's 
+    entrypoint.  Useful when running under FCGI.
 
-This often requires the script entrypoint to be run by user 'root' outside of 
-the webserver environment, in order to have enough priveledges to write a file.
+    This often requires the script entrypoint to be run by user 'root' outside of 
+    the webserver environment, in order to have enough priveledges to write a file.
 
-- \_\_session\_name\_\_
+- **session\_name**
 
-The name of the session cookie that visitors will automatically receive. Default is 'session'
+    The name of the session cookie that visitors will automatically receive. Default is 'session'
 
-- \_\_session\_secret\_\_
+- **session\_secret**
 
-This key used to sign the session id, and prevent any kind of session hijacking by brute force. 
-Should be a string of random characters. Longer is better. There's a default secret, but it's not
-excactly a secret, since everyone with this module has it.  Use your own whenever possible.
+    This key used to sign the session id, and prevent any kind of session hijacking by brute force. 
+    Should be a string of random characters. Longer is better. There's a default secret, but it's not
+    excactly a secret, since everyone with this module has it.  Use your own whenever possible.
 
-- \_\_templates\_\_
+- **templates**
 
-This is a colon separated list of template include directories.  Relative or absolute
-paths are accepted.  Relative paths are converted to '$Bin/$path'
+    This is a colon separated list of template include directories.  Relative or absolute
+    paths are accepted.  Relative paths are converted to '$Bin/$path'
 
-Template Toolkit is the only template engine supported.
+    Template Toolkit is the only template engine supported.
 
-- \_\_session\_engine\_\_
+- **session\_engine**
 
-This can either be the session engine's name, or a session engine object.  If the name
-is given, an attempt will be made to find and create the object.
+    This can either be the session engine's name, or a session engine object.  If the name
+    is given, an attempt will be made to find and create the object.
 
-Valid options: 
-   redis: <not available currently>
-   etcd:  requires 'etcd\_base' uri to be specified in config
-   cookie: <not available currently>
-   default: uses json files in /tmp
+    Valid options: 
+       redis: &lt;not available currently>
+       etcd:  requires 'etcd\_base' uri to be specified in config
+       cookie: &lt;not available currently>
+       default: uses json files in /tmp
 
-## run_fcgi
+## run\_fcgi
 
 Enter the main loop and start responding to requests under an fcgi server, like apache with mod\_fcgid
 
-## run_psgi
+## run\_psgi
 
 Return a code-ref that's compatible with plackup or starman.  This is typically the last thing you run in 
 your psgi file.
@@ -137,7 +136,7 @@ template file.   So, to use "../views/foo.tt", you would call $app->template("fo
 Compose a JSON response
 
 Generally:
-    return $req->json(<data vars>, <config vars>);
+    return $req->json(&lt;data vars>, &lt;config vars>);
 
 Data vars must be a hash reference. Config vars must also be a hash reference and is optional.
 If config vars are empty or missing, the http response status code will default to "200 ok"
@@ -161,7 +160,7 @@ Get one or all keys in the session.
 Usage:
 
      # get all keys
-     $entire\_session = $req->session->get;
+     $entire_session = $req->session->get;
 
      # get one key
      $itme = $req->session->get("authenticated");
@@ -172,7 +171,6 @@ Usage:
 Set one key in the session
 
 Usage:
-     
 
     $req->session->set(authenticated => 1);
 
@@ -185,6 +183,5 @@ Save the session to whatever storage backend this engine uses.
 Retrieve this visitors unique session id.
 
 Usage:
-   
 
     $id = $req->session->id;
