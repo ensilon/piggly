@@ -22,25 +22,19 @@ piggly - a straight forward PSGI web framework
     # -or - Get config from this hash.
     my $p = piggly->new({ option => "value", option2 => ... });
 
-    # In FCGI mode
-    $p->run_fcgi(
-        sub {
-            # success
-            my ($req, $route, $form) = @_;
-        },
-        sub {
-            my ($req, $route, $form, $error) = @_;
-        },
-    );
-
     # In PSGI mode (e.g. under 'starman')
-    $p->run_fcgi(
+    $p->run_psgi(
         sub {
             # success
             my ($req, $route, $form) = @_;
+            return $req->template("hello")            if $route eq "get /";
+            return $req->json({ message => "hello" }) if $route eq "get /messages/hello";
+            return $req->template("error",{},404);
         },
         sub {
+            # total failure. something died.
             my ($req, $route, $form, $error) = @_;
+            return $req->template("error",{ error => $error }, 500);
         },
     );
 
