@@ -2,6 +2,9 @@
 
 package piggly::request;
 
+use piggly::session;
+use piggly::cookie;
+
 use strict;
 use warnings;
 
@@ -28,7 +31,7 @@ sub new {
         __error      => undef,
         __form       => {},
         __uploads    => {},
-        __cookies    => {},
+        __cookies    => undef,        
         __session_id => "",
         __session    => {},
         __json       => 0,
@@ -53,7 +56,8 @@ sub cry {
     $self->{"__error"} = $err;
     return 0;
 }
-sub session    { return shift->{"__session"}    }
+sub cookies    { return shift->{"__cookies"}    } # cookies object
+sub session    { return shift->{"__session"}    } # session object
 sub session_id { return shift->{"__session_id"} }
 sub is_json    { return shift->{"__json"}       }
 sub broken     {
@@ -112,11 +116,12 @@ sub __init {
     }
     
     # Get cookies
-    $self->{"__cookies"} = $self->{"__psgi_req"}->cookies;
+    my $cookies = $self->{"__psgi_req"}->cookies || {};
+    $self->{"__cookies"} = piggly::cookies->new($cookies);
     
     # get session id (from a cookie if valid, otherise make a new one)
     my $session_name = $self->{"__piggly_app"}->{"session_name"};
-    my $tmp          = $self->{"__cookies"}->{$session_name};
+    my $tmp          = $self->cookies->get($session_name);
     my $session_id   = "";
 
     if ($tmp) {
@@ -133,20 +138,19 @@ sub __init {
         
     # Build session
     $self->{"__session"} = piggly::session->new($self->{"__session_id"}, $self->{"__piggly_app"}->{"session_engine"});
-    $self->{"__session"}->get;
-        
+    # cache session, if any
+    $self->{"__session"}->get;        
 }
 
 sub __before_response {
     my $self    = shift;
     my $res     = shift;
-    my $cookies = shift;
     
     # Write the session-id to a cookie if needed.
     my $session_name      = $self->{"__piggly_app"}->{"session_name"};
-    my $cur_session_value = $self->{"__cookies"}->{$session_name} || "";
-    my $needs_session = 0;
-    
+    my $cur_session_value = $self->cookies->get($session_name) || "";
+    my $needs_session     = 0;
+
     if ($cur_session_value) {
         my ($id, $sig) = split(/__/, $cur_session_value);
         if ($id ne $self->{"__session_id"}) {
@@ -160,14 +164,12 @@ sub __before_response {
     if ($needs_session) {
         my $session_secret = $self->{"__piggly_app"}->{"session_secret"};
         my $session_sig    = md5_hex(join("", $self->{"__session_id"}, $session_secret));
-        $res->cookies->{ $session_name } = join("__", $self->{"__session_id"}, $session_sig);
+        $self->cookies->set($session_name => join("__", $self->{"__session_id"}, $session_sig));
     }
     
-    if ($cookies && ref($cookies) eq "HASH") {
-        foreach my $nm (keys(%$cookies)) {
-            $res->cookies->{$nm} = $cookies->{$nm};
-        }
-    }
+    # Commit new cookies
+    my $unsaved = $self->cookies->unsaved || {};
+    map { $res->cookies->{$_} = $unsaved->{$_} } keys(%$unsaved);
         
     # Commit current session to persistent storage.
     $self->session->save;
@@ -182,7 +184,7 @@ sub template {
     die "cannot operate without a template name" unless $template_name;
             
     my $res = $self->{"__psgi_req"}->new_response($code);
-    $self->__before_response($res, $data->{"cookies"} || undef);
+    $self->__before_response($res);
     
     if ($data->{"cookies"} && ref($data->{"cookies"}) eq "HASH") {
         foreach my $cookie (keys(%{ $data->{"cookies"} })) {
@@ -235,7 +237,6 @@ sub redir {
     my $self    = shift;
     my $url     = shift;        
     my $code    = shift || 301;
-    my $cookies = shift || {};
     
     my $res = $self->{"__psgi_req"}->new_response($code);
     
@@ -243,7 +244,7 @@ sub redir {
         $url = join("", $self->{"__piggly_app"}->{"uri_base"}, $url);
     }
     
-    $self->__before_response($res, $cookies);
+    $self->__before_response($res);
     
     $res->redirect($url, $code);
     return $res;    
@@ -259,7 +260,7 @@ sub json {
     die "Failed json encoding: $@" if $@;
     
     my $res = $self->{"__psgi_req"}->new_response(200);
-    $self->__before_response($res, $data->{"cookies"} || undef);
+    $self->__before_response($res);
 
     $res->content_type('application/json');
     $res->body($json_str);

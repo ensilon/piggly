@@ -65,11 +65,15 @@ Main:
     \$pgy->run_psgi(
         sub {
             my (\$req, \$route, \$form) = \@_;
-            return \$req->template("main");
+            return \$req->template("main") if \$route eq "get /";
+            
+            # catch-all route:
+            return \$req->template("error", { error => "Not found"}, 404);            
         },
         sub {
+            # if the application dies at any time:
             my (\$req, \$route, \$form, \$error) = \@_;
-            return \$req->template("error", { error => \$error });
+            return \$req->template("error", { error => \$error }, 500);
         },
     );                    
 }
