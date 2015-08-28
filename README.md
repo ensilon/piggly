@@ -61,6 +61,9 @@ or a mixture of both.   Options found in the JSON config file take precidence.
 - **uri\_base**
 
     The base uri of the application. Can be "/" or "/some-path/to-your-app"
+    If your application lives at "/my-application", then that is your uri\_base.
+    From within the application, if $route is "get /foo/bar", then your visitor actually 
+    requested "get /my-application/foo/bar".
 
 - **htaccess**
 
@@ -121,8 +124,7 @@ Generally:
 
     return $req->template(<template name>, <template vars>, <status code>);
 
-Template vars are optional, as are configvars.  If config vars are empty or missing, the
-http response status code will default to "200 ok"
+Template vars are optional, as are configvars.  Status code is optional, and will default to "200"
 
 Usage:
     return $req->template("main", { template\_var1 => "foo", ... }, 200);
@@ -140,13 +142,24 @@ template file.   So, to use "../views/foo.tt", you would call $app->template("fo
 Compose a JSON response
 
 Generally:
-    return $req->json(&lt;data vars>, &lt;config vars>);
+    return $req->json(&lt;data vars>, &lt;status code>);
 
-Data vars must be a hash reference. Config vars must also be a hash reference and is optional.
-If config vars are empty or missing, the http response status code will default to "200 ok"
+Data vars must be a hash reference. Status code is optional and will default to "200"
 
 Usage:
-    return $req->json({ item1 => "value, item2 => ... }, { status => 200 });
+    return $req->json({ item1 => "value, item2 => ... }, 200 );
+
+## redirect
+
+Compose a redirect response
+
+Generally:
+    return $req->redirect(&lt;new url>, &lt;status code>);
+
+New URL must be set. It can be any valid url.  Status code is optional, and will default to "301".
+
+Usage:
+    return $req->redirect("/login", 301);
 
 ## session
 
