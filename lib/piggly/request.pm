@@ -253,13 +253,15 @@ sub redir {
 sub json {
     my $self = shift;
     my $data = shift || {};
+    my $code = shift || 200;
+    
     my $json_str = "";
     eval {
         $json_str = to_json($data);
     };
     die "Failed json encoding: $@" if $@;
     
-    my $res = $self->{"__psgi_req"}->new_response(200);
+    my $res = $self->{"__psgi_req"}->new_response($code);
     $self->__before_response($res);
 
     $res->content_type('application/json');
