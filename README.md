@@ -119,13 +119,17 @@ Compose a template, and create a response, complete with headers.
 
 Generally:
 
-    return $req->template(<template name>, <template vars>, <config vars>);
+    return $req->template(<template name>, <template vars>, <status code>);
 
 Template vars are optional, as are configvars.  If config vars are empty or missing, the
 http response status code will default to "200 ok"
 
 Usage:
-    return $req->template("main", { template\_var1 => "foo", ... }, { status => 200 });
+    return $req->template("main", { template\_var1 => "foo", ... }, 200);
+
+    -or-
+
+    return $req->template("error", { error => $error, ... }, 500);
 
 Template name must be a template file that can be found in one of the "templates" directories
 specified in your config.  template\_name should not include the file extension (.tt) of the 
